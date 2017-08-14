@@ -8,30 +8,48 @@ import (
 	cid "gx/ipfs/QmTprEaAA2A9bst5XH7exuyi5KzNMK3SEDNN8rBDnKWcUS/go-cid"
 )
 
-type color uint8
-
 const (
-	colorNull color = iota
+	colorNull trielement = iota
 	color1
 	color2
 	color3
+	colorMask = 0x3
 )
 
+const (
+	// enum from enumerator
+	// stricter enumerators should have higer value than those less strict
+	enumFast   trielement = 0
+	enumStrict trielement = 1 << 2
+	enumMask   trielement = enumStrict
+)
+
+// this const is used to enable runtime check for things that should never happen
+// will cause panic if they happen
+const pedantic = true
+
 // try to keep trielement as small as possible
-// 8bit color is overkill, 2 bits would be enough, maybe pack in future
+// 8bit color is overkill, 3 bits would be enough, but additional functionality
+// will probably increase it future
 // if ever it blows over 64bits total size change the colmap in triset to use
 // pointers onto this structure
-type trielement struct {
-	c color
+type trielement uint8
+
+func (t trielement) getColor() trielement {
+	return t & colorMask
+}
+
+func (t trielement) getEnum() trielement {
+	return t & enumMask
 }
 
 type triset struct {
 	// colors are per triset allowing fast color swap after sweep,
 	// the update operation in map of structs is about 3x as fast
 	// as insert and requres 0 allocations (keysize allocation in case of insert)
-	white, gray, black color
+	white, gray, black trielement
 
-	freshColor color
+	freshColor trielement
 
 	// grays is used as stack to enumerate elements that are still gray
 	grays []cid.Cid
@@ -58,9 +76,13 @@ func newTriset() *triset {
 // it marks it with freshColor if it is currently white
 func (tr *triset) InsertFresh(c cid.Cid) {
 	e := tr.colmap[c.KeyString()]
+	cl := e.getColor()
 
-	if e.c == colorNull || (e.c == tr.white && tr.freshColor != tr.white) {
-		tr.colmap[c.KeyString()] = trielement{tr.freshColor}
+	// conditions to change the element:
+	// 1. does not exist in set
+	// 2. is white and fresh color is different
+	if cl == colorNull || (cl == tr.white && tr.freshColor != tr.white) {
+		tr.colmap[c.KeyString()] = trielement(tr.freshColor)
 	}
 }
 
@@ -68,34 +90,71 @@ func (tr *triset) InsertFresh(c cid.Cid) {
 func (tr *triset) InsertWhite(c cid.Cid) {
 	_, ok := tr.colmap[c.KeyString()]
 	if !ok {
-		tr.colmap[c.KeyString()] = trielement{tr.white}
+		tr.colmap[c.KeyString()] = trielement(tr.white)
 	}
 }
 
 // InsertGray inserts new item into set as gray or turns white item into gray
-func (tr *triset) InsertGray(c cid.Cid) {
+// strict arguemnt is used to signify the the garbage collector that this
+// DAG must be enumerated fully, any non aviable objects must stop the progress
+// and error out
+func (tr *triset) InsertGray(c cid.Cid, strict bool) {
+	newEnum := enumFast
+	if strict {
+		newEnum = enumStrict
+	}
+
 	e := tr.colmap[c.KeyString()]
-	if e.c == colorNull || e.c == tr.white {
-		tr.colmap[c.KeyString()] = trielement{tr.gray}
-		tr.grays = append(tr.grays, c)
+	cl := e.getColor()
+	// conditions are:
+	// 1. empty
+	// 2. while
+	// 3. insufficient strictness
+	if cl == colorNull || cl == tr.white || (e.getEnum() < newEnum) {
+		tr.colmap[c.KeyString()] = trielement(tr.gray | newEnum)
+		if cl != tr.gray {
+			tr.grays = append(tr.grays, c)
+		}
 	}
 }
 
-func (tr *triset) blacken(key string) {
-	tr.colmap[key] = trielement{tr.black}
+func (tr *triset) blacken(c cid.Cid, strict trielement) {
+	tr.colmap[c.KeyString()] = trielement(tr.black | strict)
 }
 
 // EnumerateStep performs one Links lookup in search for elements to gray out
 // it returns error is the getLinks function errors
 // if the gray set is empty after this step it returns (true, nil)
-func (tr *triset) EnumerateStep(ctx context.Context, getLinks dag.GetLinks) (bool, error) {
+func (tr *triset) EnumerateStep(ctx context.Context, getLinks dag.GetLinks, getLinksStrict dag.GetLinks) (bool, error) {
 	var c cid.Cid
-	for next := true; next; next = tr.colmap[c.KeyString()].c != tr.gray {
+	var e trielement
+	for next := true; next; next = e.getColor() != tr.gray {
 		if len(tr.grays) == 0 {
 			return true, nil
 		}
 		// get element from top of queue
-		c := tr.grays(len(tr.grays) - 1)
+		c = tr.grays[len(tr.grays)-1]
+		e = tr.colmap[c.KeyString()]
 		tr.grays = tr.grays[:len(tr.grays)-1]
 	}
+
+	strict := e.getEnum() == enumStrict
+
+	// select getLinks method
+	gL := getLinks
+	if strict {
+		gL = getLinksStrict
+	}
+
+	links, err := gL(ctx, &c)
+	if err != nil {
+		return false, err
+	}
+
+	tr.blacken(c, strict)
+	for _, l := range links {
+		tr.InsertGray(*l.Cid, strict)
+	}
+
+	return len(tr.grays) == 0, nil
 }
