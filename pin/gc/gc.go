@@ -91,11 +91,19 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 			return links, nil
 		}
 
+		var criticalError error
+		defer func() {
+			if criticalError != nil {
+				output <- Result{Error: criticalError}
+			}
+		}()
+
 		// Enumerate without the lock
 		for {
 			finished, err := tri.EnumerateStep(ctx, getLinks, bestEffortGetLinks)
 			if err != nil {
 				output <- Result{Error: err}
+				criticalError = ErrCannotFetchAllLinks
 				return
 			}
 			if finished {
@@ -151,6 +159,7 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 			finished, err := tri.EnumerateStep(ctx, getLinks, bestEffortGetLinks)
 			if err != nil {
 				output <- Result{Error: err}
+				criticalError = ErrCannotFetchAllLinks
 				return
 			}
 			if finished {
@@ -162,7 +171,6 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 		esweep := log.EventBegin(ctx, "GC.sweep")
 
 		var whiteSetSize, blackSetSize uint64
-		var errors bool
 
 	loop2:
 		for v, e := range tri.colmap {
@@ -180,8 +188,8 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 
 			err = bs.DeleteBlock(c)
 			if err != nil {
-				errors = true
 				output <- Result{Error: &CannotDeleteBlockError{c, err}}
+				criticalError = ErrCannotDeleteSomeBlocks
 				continue
 			}
 			select {
@@ -196,9 +204,6 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 			"blackSetSize": fmt.Sprintf("%d", blackSetSize),
 		})
 		esweep.Done()
-		if errors {
-			output <- Result{Error: ErrCannotDeleteSomeBlocks}
-		}
 	}()
 	return output
 }
