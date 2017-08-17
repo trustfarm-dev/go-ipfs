@@ -144,7 +144,7 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 		}
 
 		for _, v := range pn.DirectKeys() {
-			tri.blacken(v, false)
+			tri.blacken(v, enumFast)
 		}
 		emark.Done()
 		esweep := log.EventBegin(ctx, "GC.sweep")
