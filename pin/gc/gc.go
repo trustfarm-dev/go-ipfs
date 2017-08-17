@@ -58,7 +58,6 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 	output := make(chan Result, 128)
 	tri := newTriset()
 
-	unlocker, elock := getGCLock(ctx, bs)
 	emark := log.EventBegin(ctx, "GC.mark")
 
 	err := pn.Flush()
@@ -68,9 +67,6 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 		return output
 	}
 	addRoots(tri, pn, bestEffortRoots)
-
-	unlocker.Unlock()
-	elock.Done()
 
 	go func() {
 		defer close(output)
