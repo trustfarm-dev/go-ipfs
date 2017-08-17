@@ -100,11 +100,13 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 			if err != nil {
 				output <- Result{Error: err}
 				criticalError = ErrCannotFetchAllLinks
-				return
 			}
 			if finished {
 				break
 			}
+		}
+		if criticalError != nil {
+			return
 		}
 
 		// Add white objects
@@ -156,11 +158,14 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 			if err != nil {
 				output <- Result{Error: err}
 				criticalError = ErrCannotFetchAllLinks
-				return
 			}
 			if finished {
 				break
 			}
+		}
+
+		if criticalError != nil {
+			return
 		}
 
 		emark.Done()
