@@ -13,7 +13,7 @@ func TestInsertWhite(t *testing.T) {
 	blkgen := blocksutil.NewBlockGenerator()
 
 	whites := make([]*cid.Cid, 1000)
-	for i, _ := range whites {
+	for i := range whites {
 		blk := blkgen.Next()
 		whites[i] = blk.Cid()
 
