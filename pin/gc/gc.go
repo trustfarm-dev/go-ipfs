@@ -40,10 +40,6 @@ func addRoots(tri *triset, pn pin.Pinner, bestEffortRoots []*cid.Cid) {
 		tri.InsertGray(v, true)
 	}
 
-	for _, v := range pn.InternalPins() {
-		tri.InsertGray(v, true)
-	}
-
 }
 
 // GC performs a mark and sweep garbage collection of the blocks in the blockstore
@@ -65,6 +61,12 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 	unlocker, elock := getGCLock(ctx, bs)
 	emark := log.EventBegin(ctx, "GC.mark")
 
+	err := pn.Flush()
+	if err != nil {
+		output <- Result{Error: err}
+		close(output)
+		return output
+	}
 	addRoots(tri, pn, bestEffortRoots)
 
 	unlocker.Unlock()
@@ -128,8 +130,21 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 		defer unlocker.Unlock()
 		defer elock.Done()
 
+		err = pn.Flush()
+		if err != nil {
+			output <- Result{Error: err}
+			return
+		}
 		// Add the roots again, they might have changed
 		addRoots(tri, pn, bestEffortRoots)
+
+		// This prevents incremental and concurrent GCing
+		for _, v := range pn.DirectKeys() {
+			tri.blacken(v, enumStrict)
+		}
+		for _, v := range pn.InternalPins() {
+			tri.InsertGray(v, true)
+		}
 
 		// Reenumerate, fast as most will be duplicate
 		for {
@@ -143,9 +158,6 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 			}
 		}
 
-		for _, v := range pn.DirectKeys() {
-			tri.blacken(v, enumFast)
-		}
 		emark.Done()
 		esweep := log.EventBegin(ctx, "GC.sweep")
 
