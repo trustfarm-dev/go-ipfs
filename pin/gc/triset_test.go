@@ -1,111 +1,29 @@
 package gc
 
 import (
-	"math/rand"
 	"testing"
-	"unsafe"
+
+	"github.com/ipfs/go-ipfs/blocks/blocksutil"
+
+	cid "gx/ipfs/QmTprEaAA2A9bst5XH7exuyi5KzNMK3SEDNN8rBDnKWcUS/go-cid"
 )
 
-func TestTrielementSize(t *testing.T) {
-	t.Log("trielement size is:", unsafe.Sizeof(trielement{}))
-}
+func TestInsertWhite(t *testing.T) {
+	tri := newTriset()
+	blkgen := blocksutil.NewBlockGenerator()
 
-func BenchmarkMapInserts(b *testing.B) {
-	b.N = 10e6
-	keys := make([]string, b.N)
-	buf := make([]byte, 64)
-	for i := 0; i < b.N; i++ {
-		_, err := rand.Read(buf)
-		if err != nil {
-			b.Fatal(err)
+	whites := make([]*cid.Cid, 1000)
+	for i, _ := range whites {
+		blk := blkgen.Next()
+		whites[i] = blk.Cid()
+
+		tri.InsertWhite(*blk.Cid())
+	}
+
+	for _, v := range whites {
+		if tri.colmap[v.KeyString()].getColor() != tri.white {
+			t.Errorf("cid %s should be white and is not %s", v, tri.colmap[v.KeyString()])
 		}
-		keys[i] = string(buf)
 	}
 
-	set := make(map[string]trielement)
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		set[keys[i]] = trielement{1}
-	}
-}
-func BenchmarkMapUpdate(b *testing.B) {
-	b.N = 10e6
-	keys := make([]string, b.N)
-	buf := make([]byte, 64)
-	for i := 0; i < b.N; i++ {
-		_, err := rand.Read(buf)
-		if err != nil {
-			b.Fatal(err)
-		}
-		keys[i] = string(buf)
-	}
-
-	set := make(map[string]trielement)
-	for i := 0; i < b.N; i++ {
-		set[keys[i]] = trielement{1}
-	}
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		set[keys[i]] = trielement{2}
-	}
-}
-
-type testint uint8
-type teststruc struct {
-	u uint8
-}
-
-func BenchmarkMapUpdateUint8(b *testing.B) {
-	b.N = 10e6
-	keys := make([]string, b.N)
-	buf := make([]byte, 64)
-	for i := 0; i < b.N; i++ {
-		_, err := rand.Read(buf)
-		if err != nil {
-			b.Fatal(err)
-		}
-		keys[i] = string(buf)
-	}
-
-	set := make(map[string]testint)
-	for i := 0; i < b.N; i++ {
-		set[keys[i]] = testint(i)
-	}
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		set[keys[i]] = testint(i)
-	}
-}
-
-func BenchmarkMapUpdateStruct(b *testing.B) {
-	b.N = 10e6
-	keys := make([]string, b.N)
-	buf := make([]byte, 64)
-	for i := 0; i < b.N; i++ {
-		_, err := rand.Read(buf)
-		if err != nil {
-			b.Fatal(err)
-		}
-		keys[i] = string(buf)
-	}
-
-	set := make(map[string]teststruc)
-	for i := 0; i < b.N; i++ {
-		set[keys[i]] = teststruc{uint8(i)}
-	}
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		set[keys[i]] = teststruc{uint8(i)}
-	}
 }

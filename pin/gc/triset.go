@@ -151,7 +151,7 @@ func (tr *triset) EnumerateStep(ctx context.Context, getLinks dag.GetLinks, getL
 		return false, err
 	}
 
-	tr.blacken(c, strict)
+	tr.blacken(c, e.getEnum())
 	for _, l := range links {
 		tr.InsertGray(*l.Cid, strict)
 	}
