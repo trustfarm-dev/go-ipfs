@@ -96,7 +96,7 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 
 		// Enumerate without the lock
 		for {
-			finished, err := tri.EnumerateStep(ctx, getLinks, bestEffortGetLinks)
+			finished, err := tri.EnumerateStep(ctx, bestEffortGetLinks, getLinks)
 			if err != nil {
 				output <- Result{Error: err}
 				criticalError = ErrCannotFetchAllLinks
