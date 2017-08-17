@@ -143,7 +143,7 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 			}
 		}
 
-		for _, v := pn.DirectKeys() {
+		for _, v := range pn.DirectKeys() {
 			tri.blacken(v, false)
 		}
 		emark.Done()
