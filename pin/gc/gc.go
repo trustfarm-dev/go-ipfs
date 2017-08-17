@@ -36,10 +36,6 @@ func addRoots(tri *triset, pn pin.Pinner, bestEffortRoots []*cid.Cid) {
 		tri.InsertGray(v, false)
 	}
 
-	for _, v := range pn.DirectKeys() {
-		tri.InsertGray(v, false)
-	}
-
 	for _, v := range pn.RecursiveKeys() {
 		tri.InsertGray(v, true)
 	}
@@ -145,6 +141,10 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 			if finished {
 				break
 			}
+		}
+
+		for _, v := pn.DirectKeys() {
+			tri.blacken(v, false)
 		}
 		emark.Done()
 		esweep := log.EventBegin(ctx, "GC.sweep")
