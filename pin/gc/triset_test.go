@@ -17,7 +17,7 @@ func TestInsertWhite(t *testing.T) {
 		blk := blkgen.Next()
 		whites[i] = blk.Cid()
 
-		tri.InsertWhite(*blk.Cid())
+		tri.InsertWhite(blk.Cid())
 	}
 
 	for _, v := range whites {

@@ -52,7 +52,7 @@ type triset struct {
 	freshColor trielement
 
 	// grays is used as stack to enumerate elements that are still gray
-	grays []cid.Cid
+	grays []*cid.Cid
 
 	// if item doesn't exist in the colmap it is treated as white
 	colmap map[string]trielement
@@ -64,7 +64,7 @@ func newTriset() *triset {
 		gray:  color2,
 		black: color3,
 
-		grays:  make([]cid.Cid, 0, 1<<10),
+		grays:  make([]*cid.Cid, 0, 1<<10),
 		colmap: make(map[string]trielement),
 	}
 
@@ -74,7 +74,7 @@ func newTriset() *triset {
 
 // InsertFresh inserts fresh item into a set
 // it marks it with freshColor if it is currently white
-func (tr *triset) InsertFresh(c cid.Cid) {
+func (tr *triset) InsertFresh(c *cid.Cid) {
 	e := tr.colmap[c.KeyString()]
 	cl := e.getColor()
 
@@ -87,7 +87,7 @@ func (tr *triset) InsertFresh(c cid.Cid) {
 }
 
 // InsertWhite inserts white item into a set if it doesn't exist
-func (tr *triset) InsertWhite(c cid.Cid) {
+func (tr *triset) InsertWhite(c *cid.Cid) {
 	_, ok := tr.colmap[c.KeyString()]
 	if !ok {
 		tr.colmap[c.KeyString()] = trielement(tr.white)
@@ -98,7 +98,7 @@ func (tr *triset) InsertWhite(c cid.Cid) {
 // strict arguemnt is used to signify the the garbage collector that this
 // DAG must be enumerated fully, any non aviable objects must stop the progress
 // and error out
-func (tr *triset) InsertGray(c cid.Cid, strict bool) {
+func (tr *triset) InsertGray(c *cid.Cid, strict bool) {
 	newEnum := enumFast
 	if strict {
 		newEnum = enumStrict
@@ -118,7 +118,7 @@ func (tr *triset) InsertGray(c cid.Cid, strict bool) {
 	}
 }
 
-func (tr *triset) blacken(c cid.Cid, strict trielement) {
+func (tr *triset) blacken(c *cid.Cid, strict trielement) {
 	tr.colmap[c.KeyString()] = trielement(tr.black | strict)
 }
 
@@ -126,7 +126,7 @@ func (tr *triset) blacken(c cid.Cid, strict trielement) {
 // it returns error is the getLinks function errors
 // if the gray set is empty after this step it returns (true, nil)
 func (tr *triset) EnumerateStep(ctx context.Context, getLinks dag.GetLinks, getLinksStrict dag.GetLinks) (bool, error) {
-	var c cid.Cid
+	var c *cid.Cid
 	var e trielement
 	for next := true; next; next = e.getColor() != tr.gray {
 		if len(tr.grays) == 0 {
@@ -146,14 +146,14 @@ func (tr *triset) EnumerateStep(ctx context.Context, getLinks dag.GetLinks, getL
 		gL = getLinksStrict
 	}
 
-	links, err := gL(ctx, &c)
+	links, err := gL(ctx, c)
 	if err != nil {
 		return false, err
 	}
 
 	tr.blacken(c, e.getEnum())
 	for _, l := range links {
-		tr.InsertGray(*l.Cid, strict)
+		tr.InsertGray(l.Cid, strict)
 	}
 
 	return len(tr.grays) == 0, nil
