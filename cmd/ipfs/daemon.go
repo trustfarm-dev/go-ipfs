@@ -43,6 +43,7 @@ const (
 	routingOptionDHTClientKwd = "dhtclient"
 	routingOptionDHTKwd       = "dht"
 	routingOptionNoneKwd      = "none"
+	routingOptionDefaultKwd   = "default"
 	unencryptTransportKwd     = "disable-transport-encryption"
 	unrestrictedApiAccessKwd  = "unrestricted-api"
 	writableKwd               = "writable"
@@ -146,7 +147,7 @@ Headers.
 
 	Options: []cmds.Option{
 		cmds.BoolOption(initOptionKwd, "Initialize ipfs with default settings if not already initialized").Default(false),
-		cmds.StringOption(routingOptionKwd, "Overrides the routing option").Default("dht"),
+		cmds.StringOption(routingOptionKwd, "Overrides the routing option").Default("default"),
 		cmds.BoolOption(mountKwd, "Mounts IPFS to the filesystem").Default(false),
 		cmds.BoolOption(writableKwd, "Enable writing objects (with POST, PUT and DELETE)").Default(false),
 		cmds.StringOption(ipfsMountKwd, "Path to the mountpoint for IPFS (if using --mount). Defaults to config setting."),
@@ -301,6 +302,18 @@ func daemonFunc(req cmds.Request, res cmds.Response) {
 	if err != nil {
 		res.SetError(err, cmds.ErrNormal)
 		return
+	}
+	if routingOption == routingOptionDefaultKwd {
+		cfg, err := repo.Config()
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
+		routingOption = cfg.Discovery.Routing
+		if routingOption == "" {
+			routingOption = routingOptionDHTKwd
+		}
 	}
 	switch routingOption {
 	case routingOptionSupernodeKwd:
