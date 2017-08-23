@@ -17,6 +17,7 @@ import (
 	"time"
 
 	dag "github.com/ipfs/go-ipfs/merkledag"
+	pin "github.com/ipfs/go-ipfs/pin"
 	ft "github.com/ipfs/go-ipfs/unixfs"
 
 	cid "gx/ipfs/QmNp85zy9RLrQ5oQD4hPyS39ezrrXpcaa7R4Y9kxdWQLLQ/go-cid"
@@ -124,6 +125,23 @@ func (kr *Root) Flush() error {
 		kr.repub.Update(nd.Cid())
 	}
 	return nil
+}
+
+func (kr *Root) PinSource() *pin.PinSource {
+	return &pin.PinSource{
+		Get: func() ([]*cid.Cid, error) {
+			err := kr.Flush()
+			if err != nil {
+				return nil, err
+			}
+
+			nd, err := kr.GetValue().GetNode()
+			if err != nil {
+				return nil, err
+			}
+			return []*cid.Cid{nd.Cid()}, nil
+		},
+	}
 }
 
 // closeChild implements the childCloser interface, and signals to the publisher that
