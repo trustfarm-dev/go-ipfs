@@ -108,7 +108,7 @@ func (tr *triset) InsertGray(c *cid.Cid, strict bool) {
 	cl := e.getColor()
 	// conditions are:
 	// 1. empty
-	// 2. while
+	// 2. white
 	// 3. insufficient strictness
 	if cl == colorNull || cl == tr.white || (e.getEnum() < newEnum) {
 		tr.colmap[c.KeyString()] = trielement(tr.gray | newEnum)

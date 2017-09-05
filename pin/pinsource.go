@@ -13,7 +13,7 @@ type PinSource struct {
 	Strict bool
 	// Direct marks the pinned object as the final object in the traversal
 	Direct bool
-	// Inernal marks the pin source which recursive enumeration should be
+	// Internal marks the pin source which recursive enumeration should be
 	// terminated by a direct pin
-	Inernal bool
+	Internal bool
 }

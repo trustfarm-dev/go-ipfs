@@ -454,7 +454,7 @@ func (p *pinner) RecursiveKeys() []*cid.Cid {
 	return p.recursePin.Keys()
 }
 
-// InernalPins returns slice of cids that are part of inernal pin structure
+// InternalPins returns slice of cids that are part of internal pin structure
 func (p *pinner) InternalPins() []*cid.Cid {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -481,7 +481,7 @@ func (p *pinner) PinSources() []*PinSource {
 		{
 			Get:     nilErr(p.InternalPins),
 			Strict:  true,
-			Inernal: true,
+			Internal: true,
 		},
 	}
 

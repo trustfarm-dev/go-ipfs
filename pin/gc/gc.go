@@ -184,7 +184,7 @@ func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.
 			c, err := cid.Cast([]byte(v))
 			if err != nil {
 				// this should not happen
-				panic("error in cast of cid, inpossibru " + err.Error())
+				panic("error in cast of cid: " + err.Error())
 			}
 
 			err = bs.DeleteBlock(c)
