@@ -18,6 +18,7 @@ on a running daemon do not read the config file at runtime.
 - [`Reprovider`](#reprovider)
 - [`SupernodeRouting`](#supernoderouting)
 - [`Swarm`](#swarm)
+- [`Profiles`](#profiles)
 
 ## `Addresses`
 Contains information about various listener addresses to be used by this node.
@@ -267,3 +268,17 @@ Disables the p2p-circuit relay transport.
 - `EnableRelayHop`
 Enables HOP relay for the node. If this is enabled, the node will act as
 an intermediate (Hop Relay) node in relay circuits for connected peers.
+
+## Profiles
+Configuration profiles allow to tweak configuration quickly. Profiles can be
+applied with `--profile` flag to `ipfs init` or with `ipfs config profile apply`
+command.
+
+- `server` profile
+Recommended for nodes with public IPv4 address, disables host and content
+discovery in local networks.
+
+- `test` profile
+Reduces external interference, useful for running ipfs in test environments.
+Note that with these settings node won't be able to talk to the rest of the
+network without manual bootstrap.
