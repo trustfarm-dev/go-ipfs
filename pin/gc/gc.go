@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	bstore "github.com/ipfs/go-ipfs/blocks/blockstore"
 	dag "github.com/ipfs/go-ipfs/merkledag"
@@ -15,6 +16,215 @@ import (
 )
 
 var log = logging.Logger("gc")
+
+// GC performs a mark and sweep garbage collection of the blocks in the blockstore
+// first, it creates a 'marked' set and adds to it the following:
+// - all recursively pinned blocks, plus all of their descendants (recursively)
+// - bestEffortRoots, plus all of its descendants (recursively)
+// - all directly pinned blocks
+// - all blocks utilized internally by the pinner
+//
+// The routine then iterates over every block in the blockstore and
+// deletes any block that is not found in the marked set.
+//
+type GC interface {
+	AddPinSource(pin.PinSource) error
+	Run(ctx context.Context) <-chan Result
+}
+
+type gctype struct {
+	bs bstore.GCBlockstore
+	ls dag.LinkService
+
+	roots []pin.PinSource
+}
+
+var _ GC = (*gctype)(nil)
+
+func NewGC(bs bstore.GCBlockstore, ls dag.LinkService) (GC, error) {
+	return &gctype{
+		bs: bs,
+		ls: ls.GetOfflineLinkService(),
+	}, nil
+}
+
+// AddPinSource adds as pin.PinSource to be considered by the GC.
+// Any calls to AddPinSource have to be done before any calls to Run.
+func (g *gctype) AddPinSource(s pin.PinSource) error {
+	g.roots = append(g.roots, s)
+	sort.SliceStable(g.roots, func(i, j int) bool {
+		return g.roots[i].Value() < g.roots[j].Value()
+	})
+
+	return nil
+}
+
+func (g *gctype) Run(ctx context.Context) <-chan Result {
+	output := make(chan Result, 128)
+	tri := newTriset()
+
+	emark := log.EventBegin(ctx, "GC.mark")
+
+	for _, r := range g.roots {
+		// Stop adding roots at first Direct pin
+		if r.Direct {
+			break
+		}
+		cids, err := r.Get()
+		if err != nil {
+			output <- Result{Error: err}
+			return output
+		}
+		for _, c := range cids {
+			tri.InsertGray(c, r.Strict)
+		}
+	}
+	go g.gcAsync(ctx, emark, output, tri)
+
+	return output
+}
+
+func (g *gctype) gcAsync(ctx context.Context, emark *logging.EventInProgress,
+	output chan Result, tri *triset) {
+
+	defer close(output)
+
+	bestEffortGetLinks := func(ctx context.Context, cid *cid.Cid) ([]*node.Link, error) {
+		links, err := g.ls.GetLinks(ctx, cid)
+		if err != nil && err != dag.ErrNotFound {
+			return nil, &CannotFetchLinksError{cid, err}
+		}
+		return links, nil
+	}
+
+	getLinks := func(ctx context.Context, cid *cid.Cid) ([]*node.Link, error) {
+		links, err := g.ls.GetLinks(ctx, cid)
+		if err != nil {
+			return nil, &CannotFetchLinksError{cid, err}
+		}
+		return links, nil
+	}
+
+	var criticalError error
+	defer func() {
+		if criticalError != nil {
+			output <- Result{Error: criticalError}
+		}
+	}()
+
+	// Enumerate without the lock
+	for {
+		finished, err := tri.EnumerateStep(ctx, bestEffortGetLinks, getLinks)
+		if err != nil {
+			output <- Result{Error: err}
+			criticalError = ErrCannotFetchAllLinks
+		}
+		if finished {
+			break
+		}
+	}
+	if criticalError != nil {
+		return
+	}
+
+	// Add white objects
+	keychan, err := g.bs.AllKeysChan(ctx)
+	if err != nil {
+		output <- Result{Error: err}
+		return
+	}
+
+loop:
+	for {
+		select {
+		case c, ok := <-keychan:
+			if !ok {
+				break loop
+			}
+			tri.InsertFresh(c)
+		case <-ctx.Done():
+			output <- Result{Error: ctx.Err()}
+			return
+		}
+	}
+
+	// Take the lock
+	unlocker, elock := getGCLock(ctx, g.bs)
+
+	defer unlocker.Unlock()
+	defer elock.Done()
+
+	// Add the roots again, they might have changed
+	for _, r := range g.roots {
+		cids, err := r.Get()
+		if err != nil {
+			criticalError = err
+			return
+		}
+		for _, c := range cids {
+			if !r.Direct {
+				tri.InsertGray(c, r.Strict)
+			} else {
+				// this special case prevents incremental and concurrent GC
+				tri.blacken(c, enumStrict)
+			}
+		}
+	}
+
+	// Reenumerate, fast as most will be duplicate
+	for {
+		finished, err := tri.EnumerateStep(ctx, getLinks, bestEffortGetLinks)
+		if err != nil {
+			output <- Result{Error: err}
+			criticalError = ErrCannotFetchAllLinks
+		}
+		if finished {
+			break
+		}
+	}
+
+	if criticalError != nil {
+		return
+	}
+
+	emark.Done()
+	esweep := log.EventBegin(ctx, "GC.sweep")
+
+	var whiteSetSize, blackSetSize uint64
+
+loop2:
+	for v, e := range tri.colmap {
+		if e.getColor() != tri.white {
+			blackSetSize++
+			continue
+		}
+		whiteSetSize++
+
+		c, err := cid.Cast([]byte(v))
+		if err != nil {
+			// this should not happen
+			panic("error in cast of cid: " + err.Error())
+		}
+
+		err = g.bs.DeleteBlock(c)
+		if err != nil {
+			output <- Result{Error: &CannotDeleteBlockError{c, err}}
+			criticalError = ErrCannotDeleteSomeBlocks
+			continue
+		}
+		select {
+		case output <- Result{KeyRemoved: c}:
+		case <-ctx.Done():
+			break loop2
+		}
+	}
+
+	esweep.Append(logging.LoggableMap{
+		"whiteSetSize": fmt.Sprintf("%d", whiteSetSize),
+		"blackSetSize": fmt.Sprintf("%d", blackSetSize),
+	})
+	esweep.Done()
+}
 
 // Result represents an incremental output from a garbage collection
 // run.  It contains either an error, or the cid of a removed object.
@@ -40,173 +250,6 @@ func addRoots(tri *triset, pn pin.Pinner, bestEffortRoots []*cid.Cid) {
 		tri.InsertGray(v, true)
 	}
 
-}
-
-// GC performs a mark and sweep garbage collection of the blocks in the blockstore
-// first, it creates a 'marked' set and adds to it the following:
-// - all recursively pinned blocks, plus all of their descendants (recursively)
-// - bestEffortRoots, plus all of its descendants (recursively)
-// - all directly pinned blocks
-// - all blocks utilized internally by the pinner
-//
-// The routine then iterates over every block in the blockstore and
-// deletes any block that is not found in the marked set.
-//
-func GC(ctx context.Context, bs bstore.GCBlockstore, ls dag.LinkService, pn pin.Pinner, bestEffortRoots []*cid.Cid) <-chan Result {
-
-	ls = ls.GetOfflineLinkService()
-	output := make(chan Result, 128)
-	tri := newTriset()
-
-	emark := log.EventBegin(ctx, "GC.mark")
-
-	err := pn.Flush()
-	if err != nil {
-		output <- Result{Error: err}
-		close(output)
-		return output
-	}
-	addRoots(tri, pn, bestEffortRoots)
-
-	go func() {
-		defer close(output)
-
-		bestEffortGetLinks := func(ctx context.Context, cid *cid.Cid) ([]*node.Link, error) {
-			links, err := ls.GetLinks(ctx, cid)
-			if err != nil && err != dag.ErrNotFound {
-				return nil, &CannotFetchLinksError{cid, err}
-			}
-			return links, nil
-		}
-
-		getLinks := func(ctx context.Context, cid *cid.Cid) ([]*node.Link, error) {
-			links, err := ls.GetLinks(ctx, cid)
-			if err != nil {
-				return nil, &CannotFetchLinksError{cid, err}
-			}
-			return links, nil
-		}
-
-		var criticalError error
-		defer func() {
-			if criticalError != nil {
-				output <- Result{Error: criticalError}
-			}
-		}()
-
-		// Enumerate without the lock
-		for {
-			finished, err := tri.EnumerateStep(ctx, bestEffortGetLinks, getLinks)
-			if err != nil {
-				output <- Result{Error: err}
-				criticalError = ErrCannotFetchAllLinks
-			}
-			if finished {
-				break
-			}
-		}
-		if criticalError != nil {
-			return
-		}
-
-		// Add white objects
-		keychan, err := bs.AllKeysChan(ctx)
-		if err != nil {
-			output <- Result{Error: err}
-			return
-		}
-
-	loop:
-		for {
-			select {
-			case c, ok := <-keychan:
-				if !ok {
-					break loop
-				}
-				tri.InsertFresh(c)
-			case <-ctx.Done():
-				output <- Result{Error: ctx.Err()}
-				return
-			}
-		}
-
-		// Regain lock
-		unlocker, elock := getGCLock(ctx, bs)
-
-		defer unlocker.Unlock()
-		defer elock.Done()
-
-		err = pn.Flush()
-		if err != nil {
-			output <- Result{Error: err}
-			return
-		}
-		// Add the roots again, they might have changed
-		addRoots(tri, pn, bestEffortRoots)
-
-		// This prevents incremental and concurrent GCing
-		for _, v := range pn.DirectKeys() {
-			tri.blacken(v, enumStrict)
-		}
-		for _, v := range pn.InternalPins() {
-			tri.InsertGray(v, true)
-		}
-
-		// Reenumerate, fast as most will be duplicate
-		for {
-			finished, err := tri.EnumerateStep(ctx, getLinks, bestEffortGetLinks)
-			if err != nil {
-				output <- Result{Error: err}
-				criticalError = ErrCannotFetchAllLinks
-			}
-			if finished {
-				break
-			}
-		}
-
-		if criticalError != nil {
-			return
-		}
-
-		emark.Done()
-		esweep := log.EventBegin(ctx, "GC.sweep")
-
-		var whiteSetSize, blackSetSize uint64
-
-	loop2:
-		for v, e := range tri.colmap {
-			if e.getColor() != tri.white {
-				blackSetSize++
-				continue
-			}
-			whiteSetSize++
-
-			c, err := cid.Cast([]byte(v))
-			if err != nil {
-				// this should not happen
-				panic("error in cast of cid: " + err.Error())
-			}
-
-			err = bs.DeleteBlock(c)
-			if err != nil {
-				output <- Result{Error: &CannotDeleteBlockError{c, err}}
-				criticalError = ErrCannotDeleteSomeBlocks
-				continue
-			}
-			select {
-			case output <- Result{KeyRemoved: c}:
-			case <-ctx.Done():
-				break loop2
-			}
-		}
-
-		esweep.Append(logging.LoggableMap{
-			"whiteSetSize": fmt.Sprintf("%d", whiteSetSize),
-			"blackSetSize": fmt.Sprintf("%d", blackSetSize),
-		})
-		esweep.Done()
-	}()
-	return output
 }
 
 var ErrCannotFetchAllLinks = errors.New("garbage collection aborted: could not retrieve some links")

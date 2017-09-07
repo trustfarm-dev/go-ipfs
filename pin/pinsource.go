@@ -17,3 +17,17 @@ type PinSource struct {
 	// terminated by a direct pin
 	Internal bool
 }
+
+func (p PinSource) Value() int {
+	v := 0
+	if !p.Strict {
+		v += 1
+	}
+	if p.Direct {
+		v += 2
+	}
+	if p.Internal {
+		v += 4
+	}
+	return v
+}

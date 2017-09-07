@@ -80,13 +80,10 @@ func BestEffortRoots(filesRoot *mfs.Root) ([]*cid.Cid, error) {
 }
 
 func GarbageCollect(n *core.IpfsNode, ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel() // in case error occurs during operation
-	roots, err := BestEffortRoots(n.FilesRoot)
+	rmed, err := GarbageCollectAsync(n, ctx)
 	if err != nil {
 		return err
 	}
-	rmed := gc.GC(ctx, n.Blockstore, n.DAG, n.Pinning, roots)
 
 	return CollectResult(ctx, rmed, nil)
 }
@@ -145,16 +142,26 @@ func (e *MultiError) Error() string {
 	return buf.String()
 }
 
-func GarbageCollectAsync(n *core.IpfsNode, ctx context.Context) <-chan gc.Result {
-	roots, err := BestEffortRoots(n.FilesRoot)
+func GarbageCollectAsync(n *core.IpfsNode, ctx context.Context) (<-chan gc.Result, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel() // in case error occurs during operation
+	g, err := gc.NewGC(n.Blockstore, n.DAG)
 	if err != nil {
-		out := make(chan gc.Result)
-		out <- gc.Result{Error: err}
-		close(out)
-		return out
+		return nil, err
 	}
 
-	return gc.GC(ctx, n.Blockstore, n.DAG, n.Pinning, roots)
+	for _, p := range n.Pinning.PinSources() {
+		err = g.AddPinSource(p)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = g.AddPinSource(*n.FilesRoot.PinSource())
+	if err != nil {
+		return nil, err
+	}
+
+	return g.Run(ctx), nil
 }
 
 func PeriodicGC(ctx context.Context, node *core.IpfsNode) error {

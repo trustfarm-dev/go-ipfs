@@ -110,6 +110,7 @@ type Pinner interface {
 	DirectKeys() []*cid.Cid
 	RecursiveKeys() []*cid.Cid
 	InternalPins() []*cid.Cid
+	PinSources() []PinSource
 }
 
 type Pinned struct {
@@ -463,12 +464,12 @@ func (p *pinner) InternalPins() []*cid.Cid {
 	return out
 }
 
-func (p *pinner) PinSources() []*PinSource {
+func (p *pinner) PinSources() []PinSource {
 	nilErr := func(p func() []*cid.Cid) func() ([]*cid.Cid, error) {
 		return func() ([]*cid.Cid, error) { return p(), nil }
 	}
 
-	return []*PinSource{
+	return []PinSource{
 		{
 			Get:    nilErr(p.RecursiveKeys),
 			Strict: true,
@@ -479,8 +480,8 @@ func (p *pinner) PinSources() []*PinSource {
 			Direct: true,
 		},
 		{
-			Get:     nilErr(p.InternalPins),
-			Strict:  true,
+			Get:      nilErr(p.InternalPins),
+			Strict:   true,
 			Internal: true,
 		},
 	}
