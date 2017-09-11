@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"gx/ipfs/QmSn9Td7xgxm9EV7iEjTckpUWmWApggzPxu7eFGWkkpwin/go-block-format"
+
 	"github.com/ipfs/go-ipfs/blocks/blockstore"
 	"github.com/ipfs/go-ipfs/blockservice"
 	"github.com/ipfs/go-ipfs/commands/files"
@@ -20,7 +22,6 @@ import (
 	"github.com/ipfs/go-ipfs/repo/config"
 	ds2 "github.com/ipfs/go-ipfs/thirdparty/datastore2"
 	pi "github.com/ipfs/go-ipfs/thirdparty/posinfo"
-	"gx/ipfs/QmSn9Td7xgxm9EV7iEjTckpUWmWApggzPxu7eFGWkkpwin/go-block-format"
 
 	cid "gx/ipfs/QmNp85zy9RLrQ5oQD4hPyS39ezrrXpcaa7R4Y9kxdWQLLQ/go-cid"
 )
@@ -46,6 +47,9 @@ func TestAddRecursive(t *testing.T) {
 }
 
 func TestAddGCLive(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	r := &repo.Mock{
 		C: config.Config{
 			Identity: config.Identity{
@@ -54,13 +58,13 @@ func TestAddGCLive(t *testing.T) {
 		},
 		D: ds2.ThreadSafeCloserMapDatastore(),
 	}
-	node, err := core.NewNode(context.Background(), &core.BuildCfg{Repo: r})
+	node, err := core.NewNode(ctx, &core.BuildCfg{Repo: r})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	out := make(chan interface{})
-	adder, err := NewAdder(context.Background(), node.Pinning, node.Blockstore, node.DAG)
+	adder, err := NewAdder(ctx, node.Pinning, node.Blockstore, node.DAG)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,11 +102,18 @@ func TestAddGCLive(t *testing.T) {
 		t.Fatal("add shouldnt complete yet")
 	}
 
+	g, err := gc.NewGC(node.Blockstore, node.DAG)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.AddPinSource(node.Pinning.PinSources()...)
+
 	var gcout <-chan gc.Result
 	gcstarted := make(chan struct{})
+
 	go func() {
 		defer close(gcstarted)
-		gcout = gc.GC(context.Background(), node.Blockstore, node.DAG, node.Pinning, nil)
+		gcout = g.Run(ctx)
 	}()
 
 	// gc shouldnt start until we let the add finish its current file.
@@ -126,6 +137,7 @@ func TestAddGCLive(t *testing.T) {
 	<-gcstarted
 
 	for r := range gcout {
+		t.Logf("gc res: %v", r)
 		if r.Error != nil {
 			t.Fatal(err)
 		}
@@ -144,11 +156,11 @@ func TestAddGCLive(t *testing.T) {
 		last = c
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx2, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
 	set := cid.NewSet()
-	err = dag.EnumerateChildren(ctx, node.DAG.GetLinks, last, set.Visit)
+	err = dag.EnumerateChildren(ctx2, node.DAG.GetLinks, last, set.Visit)
 	if err != nil {
 		t.Fatal(err)
 	}
