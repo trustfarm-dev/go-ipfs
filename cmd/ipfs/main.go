@@ -341,9 +341,15 @@ func callCommand(ctx context.Context, req cmds.Request, root *cmds.Command, cmd 
 	} else {
 		log.Debug("executing command locally")
 
-		pluginpath := filepath.Join(req.InvocContext().ConfigRoot, "plugins")
-		if _, err := loader.LoadPlugins(pluginpath); err != nil {
+		pluginPath := filepath.Join(req.InvocContext().ConfigRoot, "plugins")
+		if _, err := loader.LoadPlugins(pluginPath); err != nil {
 			return nil, err
+		}
+
+		if config.SystemPluginPath != "" {
+			if _, err := loader.LoadPlugins(config.SystemPluginPath); err != nil {
+				return nil, err
+			}
 		}
 
 		err := req.SetRootContext(ctx)
