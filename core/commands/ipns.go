@@ -96,7 +96,7 @@ Resolve the value of a dnslink:
 		var name string
 		if len(req.Arguments()) == 0 {
 			if n.Identity == "" {
-				res.SetError(errors.New("Identity not loaded"), cmdkit.ErrNormal)
+				res.SetError(errors.New("identity not loaded"), cmdkit.ErrNormal)
 				return
 			}
 			name = n.Identity.Pretty()
