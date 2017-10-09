@@ -136,16 +136,16 @@ You can now refer to the added file in a gateway, like so:
 
 		return nil
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		n, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		cfg, err := n.Repo.Config()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 		// check if repo will exceed storage limit if added
@@ -171,7 +171,7 @@ You can now refer to the added file in a gateway, like so:
 		hashFunStr, hfset, _ := req.Option(hashOptionName).String()
 
 		if nocopy && !cfg.Experimental.FilestoreEnabled {
-			re.SetError(errors.New("filestore is not enabled, see https://git.io/vy4XN"),
+			res.SetError(errors.New("filestore is not enabled, see https://git.io/vy4XN"),
 				cmdkit.ErrClient)
 			return
 		}
@@ -181,7 +181,7 @@ You can now refer to the added file in a gateway, like so:
 		}
 
 		if nocopy && !rawblks {
-			re.SetError(fmt.Errorf("nocopy option requires '--raw-leaves' to be enabled as well"), cmdkit.ErrNormal)
+			res.SetError(fmt.Errorf("nocopy option requires '--raw-leaves' to be enabled as well"), cmdkit.ErrNormal)
 			return
 		}
 
@@ -195,13 +195,13 @@ You can now refer to the added file in a gateway, like so:
 
 		prefix, err := dag.PrefixForCidVersion(cidVer)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		hashFunCode, ok := mh.Names[strings.ToLower(hashFunStr)]
 		if !ok {
-			re.SetError(fmt.Errorf("unrecognized hash function: %s", strings.ToLower(hashFunStr)), cmdkit.ErrNormal)
+			res.SetError(fmt.Errorf("unrecognized hash function: %s", strings.ToLower(hashFunStr)), cmdkit.ErrNormal)
 			return
 		}
 
@@ -215,7 +215,7 @@ You can now refer to the added file in a gateway, like so:
 				NilRepo: true,
 			})
 			if err != nil {
-				re.SetError(err, cmdkit.ErrNormal)
+				res.SetError(err, cmdkit.ErrNormal)
 				return
 			}
 			n = nilnode
@@ -239,7 +239,7 @@ You can now refer to the added file in a gateway, like so:
 
 		fileAdder, err := coreunix.NewAdder(req.Context(), n.Pinning, n.Blockstore, dserv)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
@@ -259,7 +259,7 @@ You can now refer to the added file in a gateway, like so:
 			md := dagtest.Mock()
 			mr, err := mfs.NewRoot(req.Context(), md, ft.EmptyDirNode(), nil)
 			if err != nil {
-				re.SetError(err, cmdkit.ErrNormal)
+				res.SetError(err, cmdkit.ErrNormal)
 				return
 			}
 
@@ -304,16 +304,16 @@ You can now refer to the added file in a gateway, like so:
 			err = addAllAndPin(req.Files())
 		}()
 
-		defer re.Close()
+		defer res.Close()
 
-		err = re.Emit(outChan)
+		err = res.Emit(outChan)
 		if err != nil {
 			log.Error(err)
 			return
 		}
 		err = <-errCh
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 		}
 	},
 	PostRun: map[cmds.EncodingType]func(cmds.Request, cmds.ResponseEmitter) cmds.ResponseEmitter{

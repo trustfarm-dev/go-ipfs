@@ -79,37 +79,37 @@ Example:
     "ns", "us" (or "µs"), "ms", "s", "m", "h".`).Default("1s"),
 	},
 
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		nd, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		// Must be online!
 		if !nd.OnlineMode() {
-			re.SetError(errNotOnline, cmdkit.ErrClient)
+			res.SetError(errNotOnline, cmdkit.ErrClient)
 			return
 		}
 
 		if nd.Reporter == nil {
-			re.SetError(fmt.Errorf("bandwidth reporter disabled in config"), cmdkit.ErrNormal)
+			res.SetError(fmt.Errorf("bandwidth reporter disabled in config"), cmdkit.ErrNormal)
 			return
 		}
 
 		pstr, pfound, err := req.Option("peer").String()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		tstr, tfound, err := req.Option("proto").String()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 		if pfound && tfound {
-			re.SetError(errors.New("please only specify peer OR protocol"), cmdkit.ErrClient)
+			res.SetError(errors.New("please only specify peer OR protocol"), cmdkit.ErrClient)
 			return
 		}
 
@@ -117,7 +117,7 @@ Example:
 		if pfound {
 			checkpid, err := peer.IDB58Decode(pstr)
 			if err != nil {
-				re.SetError(err, cmdkit.ErrNormal)
+				res.SetError(err, cmdkit.ErrNormal)
 				return
 			}
 			pid = checkpid
@@ -125,32 +125,32 @@ Example:
 
 		timeS, _, err := req.Option("interval").String()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 		interval, err := time.ParseDuration(timeS)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		doPoll, _, err := req.Option("poll").Bool()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		for {
 			if pfound {
 				stats := nd.Reporter.GetBandwidthForPeer(pid)
-				re.Emit(&stats)
+				res.Emit(&stats)
 			} else if tfound {
 				protoId := protocol.ID(tstr)
 				stats := nd.Reporter.GetBandwidthForProtocol(protoId)
-				re.Emit(&stats)
+				res.Emit(&stats)
 			} else {
 				totals := nd.Reporter.GetBandwidthTotals()
-				re.Emit(&totals)
+				res.Emit(&totals)
 			}
 			if !doPoll {
 				return

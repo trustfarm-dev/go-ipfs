@@ -23,23 +23,23 @@ var CatCmd = &cmds.Command{
 	Arguments: []cmdkit.Argument{
 		cmdkit.StringArg("ipfs-path", true, true, "The path to the IPFS object(s) to be outputted.").EnableStdin(),
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		node, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		if !node.OnlineMode() {
 			if err := node.SetupOfflineRouting(); err != nil {
-				re.SetError(err, cmdkit.ErrNormal)
+				res.SetError(err, cmdkit.ErrNormal)
 				return
 			}
 		}
 
 		readers, length, err := cat(req.Context(), node, req.Arguments())
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
@@ -50,16 +50,16 @@ var CatCmd = &cmds.Command{
 			}
 		*/
 
-		re.SetLength(length)
+		res.SetLength(length)
 		reader := io.MultiReader(readers...)
 
 		// Since the reader returns the error that a block is missing, and that error is
 		// returned from io.Copy inside Emit, we need to take Emit errors and send
 		// them to the client. Usually we don't do that because it means the connection
 		// is broken or we supplied an illegal argument etc.
-		err = re.Emit(reader)
+		err = res.Emit(reader)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 		}
 	},
 	PostRun: map[cmds.EncodingType]func(cmds.Request, cmds.ResponseEmitter) cmds.ResponseEmitter{

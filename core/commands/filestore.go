@@ -54,10 +54,10 @@ The output is:
 	Options: []cmdkit.Option{
 		cmdkit.BoolOption("file-order", "sort the results based on the path of the backing file"),
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		_, fs, err := getFilestore(req.InvocContext())
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 		args := req.Arguments()
@@ -66,7 +66,7 @@ The output is:
 				return filestore.List(fs, c)
 			})
 
-			err = re.Emit(out)
+			err = res.Emit(out)
 			if err != nil {
 				log.Error(err)
 			}
@@ -74,12 +74,12 @@ The output is:
 			fileOrder, _, _ := req.Option("file-order").Bool()
 			next, err := filestore.ListAll(fs, fileOrder)
 			if err != nil {
-				re.SetError(err, cmdkit.ErrNormal)
+				res.SetError(err, cmdkit.ErrNormal)
 				return
 			}
 
 			out := listResToChan(req.Context(), next)
-			err = re.Emit(out)
+			err = res.Emit(out)
 			if err != nil {
 				log.Error(err)
 			}

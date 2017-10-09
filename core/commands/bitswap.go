@@ -138,31 +138,31 @@ var bitswapStatCmd = &cmds.Command{
 		ShortDescription: ``,
 	},
 	Type: bitswap.Stat{},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		nd, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		if !nd.OnlineMode() {
-			re.SetError(errNotOnline, cmdkit.ErrClient)
+			res.SetError(errNotOnline, cmdkit.ErrClient)
 			return
 		}
 
 		bs, ok := nd.Exchange.(*bitswap.Bitswap)
 		if !ok {
-			re.SetError(e.TypeErr(bs, nd.Exchange), cmdkit.ErrNormal)
+			res.SetError(e.TypeErr(bs, nd.Exchange), cmdkit.ErrNormal)
 			return
 		}
 
 		st, err := bs.Stat()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
-		re.Emit(st)
+		res.Emit(st)
 	},
 	Encoders: cmds.EncoderMap{
 		cmds.Text: cmds.MakeEncoder(func(req cmds.Request, w io.Writer, v interface{}) error {

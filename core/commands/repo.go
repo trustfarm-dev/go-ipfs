@@ -148,20 +148,20 @@ RepoSize        int Size in bytes that the repo is currently taking.
 Version         string The repo version.
 `,
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		n, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		stat, err := corerepo.RepoStat(n, req.Context())
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
-		re.Emit(stat)
+		res.Emit(stat)
 	},
 	Options: []cmdkit.Option{
 		cmdkit.BoolOption("human", "Output RepoSize in MiB.").Default(false),

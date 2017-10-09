@@ -69,28 +69,28 @@ This command outputs data in the following encodings:
 	Options: []cmdkit.Option{
 		cmdkit.BoolOption("discover", "try to discover other peers subscribed to the same topic"),
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		n, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		// Must be online!
 		if !n.OnlineMode() {
-			re.SetError(errNotOnline, cmdkit.ErrClient)
+			res.SetError(errNotOnline, cmdkit.ErrClient)
 			return
 		}
 
 		if n.Floodsub == nil {
-			re.SetError(fmt.Errorf("experimental pubsub feature not enabled. Run daemon with --enable-pubsub-experiment to use."), cmdkit.ErrNormal)
+			res.SetError(fmt.Errorf("experimental pubsub feature not enabled. Run daemon with --enable-pubsub-experiment to use."), cmdkit.ErrNormal)
 			return
 		}
 
 		topic := req.Arguments()[0]
 		sub, err := n.Floodsub.Subscribe(topic)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 		defer sub.Cancel()
@@ -114,11 +114,11 @@ This command outputs data in the following encodings:
 			if err == io.EOF || err == context.Canceled {
 				return
 			} else if err != nil {
-				re.SetError(err, cmdkit.ErrNormal)
+				res.SetError(err, cmdkit.ErrNormal)
 				return
 			}
 
-			re.Emit(msg)
+			res.Emit(msg)
 		}
 	},
 	Encoders: cmds.EncoderMap{
@@ -198,21 +198,21 @@ To use, the daemon must be run with '--enable-pubsub-experiment'.
 		cmdkit.StringArg("topic", true, false, "Topic to publish to."),
 		cmdkit.StringArg("data", true, true, "Payload of message to publish.").EnableStdin(),
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		n, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		// Must be online!
 		if !n.OnlineMode() {
-			re.SetError(errNotOnline, cmdkit.ErrClient)
+			res.SetError(errNotOnline, cmdkit.ErrClient)
 			return
 		}
 
 		if n.Floodsub == nil {
-			re.SetError("experimental pubsub feature not enabled. Run daemon with --enable-pubsub-experiment to use.", cmdkit.ErrNormal)
+			res.SetError("experimental pubsub feature not enabled. Run daemon with --enable-pubsub-experiment to use.", cmdkit.ErrNormal)
 			return
 		}
 
@@ -220,7 +220,7 @@ To use, the daemon must be run with '--enable-pubsub-experiment'.
 
 		for _, data := range req.Arguments()[1:] {
 			if err := n.Floodsub.Publish(topic, []byte(data)); err != nil {
-				re.SetError(err, cmdkit.ErrNormal)
+				res.SetError(err, cmdkit.ErrNormal)
 				return
 			}
 		}
@@ -239,26 +239,26 @@ to be used in a production environment.
 To use, the daemon must be run with '--enable-pubsub-experiment'.
 `,
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		n, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		// Must be online!
 		if !n.OnlineMode() {
-			re.SetError(errNotOnline, cmdkit.ErrClient)
+			res.SetError(errNotOnline, cmdkit.ErrClient)
 			return
 		}
 
 		if n.Floodsub == nil {
-			re.SetError("experimental pubsub feature not enabled. Run daemon with --enable-pubsub-experiment to use.", cmdkit.ErrNormal)
+			res.SetError("experimental pubsub feature not enabled. Run daemon with --enable-pubsub-experiment to use.", cmdkit.ErrNormal)
 			return
 		}
 
 		for _, topic := range n.Floodsub.GetTopics() {
-			re.Emit(topic)
+			res.Emit(topic)
 		}
 	},
 	Type: "",
@@ -281,21 +281,21 @@ To use, the daemon must be run with '--enable-pubsub-experiment'.
 	Arguments: []cmdkit.Argument{
 		cmdkit.StringArg("topic", false, false, "topic to list connected peers of"),
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		n, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		// Must be online!
 		if !n.OnlineMode() {
-			re.SetError(errNotOnline, cmdkit.ErrClient)
+			res.SetError(errNotOnline, cmdkit.ErrClient)
 			return
 		}
 
 		if n.Floodsub == nil {
-			re.SetError(fmt.Errorf("experimental pubsub feature not enabled. Run daemon with --enable-pubsub-experiment to use."), cmdkit.ErrNormal)
+			res.SetError(fmt.Errorf("experimental pubsub feature not enabled. Run daemon with --enable-pubsub-experiment to use."), cmdkit.ErrNormal)
 			return
 		}
 
@@ -305,7 +305,7 @@ To use, the daemon must be run with '--enable-pubsub-experiment'.
 		}
 
 		for _, peer := range n.Floodsub.ListPeers(topic) {
-			re.Emit(peer.Pretty())
+			res.Emit(peer.Pretty())
 		}
 	},
 	Type: "",

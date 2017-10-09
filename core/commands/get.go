@@ -52,27 +52,27 @@ may also specify the level of compression by specifying '-l=<1-9>'.
 		_, err := getCompressOptions(req)
 		return err
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		if len(req.Arguments()) == 0 {
-			re.SetError(errors.New("not enough arugments provided"), cmdkit.ErrClient)
+			res.SetError(errors.New("not enough arugments provided"), cmdkit.ErrClient)
 			return
 		}
 		cmplvl, err := getCompressOptions(req)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		node, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 		p := path.Path(req.Arguments()[0])
 		ctx := req.Context()
 		dn, err := core.Resolve(ctx, node.Namesys, node.Resolver, p)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
@@ -80,26 +80,26 @@ may also specify the level of compression by specifying '-l=<1-9>'.
 		case *dag.ProtoNode:
 			size, err := dn.Size()
 			if err != nil {
-				re.SetError(err, cmdkit.ErrNormal)
+				res.SetError(err, cmdkit.ErrNormal)
 				return
 			}
 
-			re.SetLength(size)
+			res.SetLength(size)
 		case *dag.RawNode:
-			re.SetLength(uint64(len(dn.RawData())))
+			res.SetLength(uint64(len(dn.RawData())))
 		default:
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		archive, _, _ := req.Option("archive").Bool()
 		reader, err := uarchive.DagArchive(ctx, dn, p.String(), node.DAG, archive, cmplvl)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
-		re.Emit(reader)
+		res.Emit(reader)
 	},
 	PostRun: map[cmds.EncodingType]func(cmds.Request, cmds.ResponseEmitter) cmds.ResponseEmitter{
 		cmds.CLI: func(req cmds.Request, re cmds.ResponseEmitter) cmds.ResponseEmitter {

@@ -60,14 +60,14 @@ on raw IPFS blocks. It outputs the following to stdout:
 	Arguments: []cmdkit.Argument{
 		cmdkit.StringArg("key", true, false, "The base58 multihash of an existing block to stat.").EnableStdin(),
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		b, err := getBlockForKey(req, req.Arguments()[0])
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
-		err = re.Emit(&BlockStat{
+		err = res.Emit(&BlockStat{
 			Key:  b.Cid().String(),
 			Size: len(b.RawData()),
 		})
@@ -100,14 +100,14 @@ It outputs to stdout, and <key> is a base58 encoded multihash.
 	Arguments: []cmdkit.Argument{
 		cmdkit.StringArg("key", true, false, "The base58 multihash of an existing block to get.").EnableStdin(),
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		b, err := getBlockForKey(req, req.Arguments()[0])
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
-		err = re.Emit(bytes.NewReader(b.RawData()))
+		err = res.Emit(bytes.NewReader(b.RawData()))
 		if err != nil {
 			log.Error(err)
 		}
@@ -131,28 +131,28 @@ It reads from stdin, and <key> is a base58 encoded multihash.
 		cmdkit.StringOption("mhtype", "multihash hash function").Default("sha2-256"),
 		cmdkit.IntOption("mhlen", "multihash hash length").Default(-1),
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		n, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		file, err := req.Files().NextFile()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		data, err := ioutil.ReadAll(file)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		err = file.Close()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
@@ -162,7 +162,7 @@ It reads from stdin, and <key> is a base58 encoded multihash.
 		format, _, _ := req.Option("format").String()
 		formatval, ok := cid.Codecs[format]
 		if !ok {
-			re.SetError(fmt.Errorf("unrecognized format: %s", format), cmdkit.ErrNormal)
+			res.SetError(fmt.Errorf("unrecognized format: %s", format), cmdkit.ErrNormal)
 			return
 		}
 		if format == "v0" {
@@ -174,37 +174,37 @@ It reads from stdin, and <key> is a base58 encoded multihash.
 		mhtval, ok := mh.Names[mhtype]
 		if !ok {
 			err := fmt.Errorf("unrecognized multihash function: %s", mhtype)
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 		pref.MhType = mhtval
 
 		mhlen, _, err := req.Option("mhlen").Int()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 		pref.MhLength = mhlen
 
 		bcid, err := pref.Sum(data)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		b, err := blocks.NewBlockWithCid(data, bcid)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
 		k, err := n.Blocks.AddBlock(b)
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
-		err = re.Emit(&BlockStat{
+		err = res.Emit(&BlockStat{
 			Key:  k.String(),
 			Size: len(data),
 		})
@@ -263,10 +263,10 @@ It takes a list of base58 encoded multihashs to remove.
 		cmdkit.BoolOption("force", "f", "Ignore nonexistent blocks.").Default(false),
 		cmdkit.BoolOption("quiet", "q", "Write minimal output.").Default(false),
 	},
-	Run: func(req cmds.Request, re cmds.ResponseEmitter) {
+	Run: func(req cmds.Request, res cmds.ResponseEmitter) {
 		n, err := req.InvocContext().GetNode()
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 		hashes := req.Arguments()
@@ -277,7 +277,7 @@ It takes a list of base58 encoded multihashs to remove.
 			c, err := cid.Decode(hash)
 			if err != nil {
 				err = fmt.Errorf("invalid content id: %s (%s)", hash, err)
-				re.SetError(err, cmdkit.ErrNormal)
+				res.SetError(err, cmdkit.ErrNormal)
 				return
 			}
 
@@ -289,11 +289,11 @@ It takes a list of base58 encoded multihashs to remove.
 		})
 
 		if err != nil {
-			re.SetError(err, cmdkit.ErrNormal)
+			res.SetError(err, cmdkit.ErrNormal)
 			return
 		}
 
-		err = re.Emit(ch)
+		err = res.Emit(ch)
 		if err != nil {
 			log.Error(err)
 		}
