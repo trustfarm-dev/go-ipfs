@@ -22,10 +22,7 @@ Lists running and recently run commands.
 `,
 	},
 	Run: func(req cmds.Request, res cmds.Response) {
-		ctx := req.InvocContext()
-		reqLog := ctx.ReqLog
-		report := reqLog.Report()
-		res.SetOutput(report)
+		res.SetOutput(req.InvocContext().ReqLog.Report())
 	},
 	Options: []cmdkit.Option{
 		cmdkit.BoolOption("verbose", "v", "Print extra information.").Default(false),

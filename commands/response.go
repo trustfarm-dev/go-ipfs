@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime/debug"
 	"strings"
 
 	"gx/ipfs/QmPMeikDc7tQEDvaS66j1bVPQ2jBkvFwz3Qom5eA5i4xip/go-ipfs-cmdkit"
@@ -141,7 +140,6 @@ func (r *response) Error() *cmdkit.Error {
 }
 
 func (r *response) SetError(err error, code cmdkit.ErrorType) {
-	log.Debugf("SerError called. Stack: %s", debug.Stack())
 	r.err = &cmdkit.Error{Message: err.Error(), Code: code}
 }
 
