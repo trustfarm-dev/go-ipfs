@@ -129,7 +129,7 @@ order to reclaim hard disk space.
 
 			msg := obj.Key.String() + "\n"
 			if !quiet {
-			   msg = "removed " + msg
+				msg = "removed " + msg
 			}
 
 			return bytes.NewBufferString(msg), nil
