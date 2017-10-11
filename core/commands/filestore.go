@@ -13,7 +13,7 @@ import (
 
 	cid "gx/ipfs/QmNp85zy9RLrQ5oQD4hPyS39ezrrXpcaa7R4Y9kxdWQLLQ/go-cid"
 	"gx/ipfs/QmPMeikDc7tQEDvaS66j1bVPQ2jBkvFwz3Qom5eA5i4xip/go-ipfs-cmdkit"
-	cmds "gx/ipfs/QmPhtZyjPYddJ8yGPWreisp47H6iQjt3Lg8sZrzqMP5noy/go-ipfs-cmds"
+	cmds "gx/ipfs/QmTsa3b97c89GR8SyMeiHSf6jztNLyyxtkXE8k5qdEMxh9/go-ipfs-cmds"
 )
 
 var FileStoreCmd = &cmds.Command{
