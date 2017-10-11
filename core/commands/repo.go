@@ -127,11 +127,12 @@ order to reclaim hard disk space.
 				return nil, nil
 			}
 
-			if quiet {
-				return bytes.NewBufferString(obj.Key.String() + "\n"), nil
+			msg := obj.Key.String() + "\n"
+			if !quiet {
+			   msg = "removed " + msg
 			}
 
-			return bytes.NewBufferString(fmt.Sprintf("removed %s\n", obj.Key)), nil
+			return bytes.NewBufferString(msg), nil
 		},
 	},
 }
