@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 
 	cmds "github.com/ipfs/go-ipfs/commands"
 	"github.com/ipfs/go-ipfs/core"
@@ -20,6 +21,7 @@ var FileStoreCmd = &cmds.Command{
 		"ls":     lsFileStore,
 		"verify": verifyFileStore,
 		"dups":   dupsFileStore,
+		"get":    getFileStoreCmd,
 	},
 }
 
@@ -199,6 +201,51 @@ var dupsFileStore = &cmds.Command{
 	},
 	Marshalers: refsMarshallerMap,
 	Type:       RefWrapper{},
+}
+
+var getFileStoreCmd = &cmds.Command{
+	Helptext: cmds.HelpText{
+		Tagline: "Download IPFS objects into filestore.",
+	},
+	Arguments: []cmds.Argument{
+		cmds.StringArg("cid", true, false, "The cid of the IPFS object to be outputted."),
+		cmds.StringArg("file-path", true, false, "Path of file to store object in."),
+	},
+	Run: func(req cmds.Request, res cmds.Response) {
+		node, fs, err := getFilestore(req)
+		ctx := req.Context()
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+		args := req.Arguments()
+		c, err := cid.Decode(args[0])
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+		filePath, err := filepath.Abs(args[1])
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+		g := &filestore.Getter{
+			Ctx:       ctx,
+			FullPath:  filePath,
+			Nodes:     node.DAG,
+			Filestore: fs,
+		}
+		err = g.Init()
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+		_, err = g.Get(c, 0)
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+	},
 }
 
 func getFilestore(req cmds.Request) (*core.IpfsNode, *filestore.Filestore, error) {
