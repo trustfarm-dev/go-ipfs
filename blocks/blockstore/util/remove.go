@@ -85,12 +85,19 @@ func FilterPinned(pins pin.Pinner, out chan<- interface{}, cids []*cid.Cid) []*c
 	return stillOkay
 }
 
-// ProcRmOutput takes the channel returned by RmBlocks and writes
-// to stdout/stderr according to the RemovedBlock objects received in
+// ProcRmOutput takes the a function which returns a result from
+// RmBlocks or EOF if there is no imput.  It then writes to
+// stdout/stderr according to the RemovedBlock objects received in
 // that channel.
-func ProcRmOutput(in <-chan interface{}, sout io.Writer, serr io.Writer) error {
+func ProcRmOutput(next func() (interface{}, error), sout io.Writer, serr io.Writer) error {
 	someFailed := false
-	for res := range in {
+	for {
+		res, err := next()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
 		r := res.(*RemovedBlock)
 		if r.Hash == "" && r.Error != "" {
 			return fmt.Errorf("aborted: %s", r.Error)

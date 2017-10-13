@@ -305,48 +305,18 @@ It takes a list of base58 encoded multihashs to remove.
 			go func() {
 				defer re.Close()
 
-				var someFailed bool
+				err := util.ProcRmOutput(res.Next, os.Stdout, os.Stderr)
 
-				for {
-					v, err := res.Next()
-					if err != nil {
-						if err == io.EOF {
-							break
-						}
-
-						if err == cmds.ErrRcvdError {
-							err = res.Error()
-						}
-
-						if e, ok := err.(*cmdkit.Error); ok {
-							re.SetError(e.Message, e.Code)
-						} else {
-							re.SetError(err, cmdkit.ErrNormal)
-						}
-
-						return
+				if err != nil && err != io.EOF {
+					if err == cmds.ErrRcvdError {
+						err = res.Error()
 					}
 
-					r, ok := v.(*util.RemovedBlock)
-					if !ok {
-						log.Error(e.New(e.TypeErr(r, v)))
-						break
-					}
-
-					if r.Hash == "" && r.Error != "" {
-						fmt.Fprintf(os.Stderr, "aborted: %s\n", r.Error)
-						someFailed = true
-						break
-					} else if r.Error != "" {
-						someFailed = true
-						fmt.Fprintf(os.Stderr, "cannot remove %s: %s\n", r.Hash, r.Error)
+					if e, ok := err.(*cmdkit.Error); ok {
+						re.SetError(e.Message, e.Code)
 					} else {
-						fmt.Fprintf(os.Stdout, "removed %s\n", r.Hash)
+						re.SetError(err, cmdkit.ErrNormal)
 					}
-				}
-
-				if someFailed {
-					re.SetError("some blocks not removed", cmdkit.ErrNormal)
 				}
 			}()
 
