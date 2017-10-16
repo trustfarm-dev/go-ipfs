@@ -14,10 +14,12 @@ import (
 	config "github.com/ipfs/go-ipfs/repo/config"
 	"github.com/ipfs/go-ipfs/repo/fsrepo"
 	iaddr "github.com/ipfs/go-ipfs/thirdparty/ipfsaddr"
-	pstore "gx/ipfs/QmPgDWmTmuzvP7QE5zwo1TmjbJme9pmZHNujB2453jkCTr/go-libp2p-peerstore"
-	swarm "gx/ipfs/QmWpJ4y2vxJ6GZpPfQbpVpQxAYS3UeR6AKNbAHxw7wN3qw/go-libp2p-swarm"
 
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
+	ifconnmgr "github.com/libp2p/go-libp2p-interface-connmgr"
+	pstore "gx/ipfs/QmPgDWmTmuzvP7QE5zwo1TmjbJme9pmZHNujB2453jkCTr/go-libp2p-peerstore"
 	mafilter "gx/ipfs/QmSMZwvs3n4GBikZ7hKzT17c3bk65FmyZo2JqtJ16swqCv/multiaddr-filter"
+	swarm "gx/ipfs/QmWpJ4y2vxJ6GZpPfQbpVpQxAYS3UeR6AKNbAHxw7wN3qw/go-libp2p-swarm"
 	ma "gx/ipfs/QmXY77cVe7rVRQXZZQRioukUM7aRW3BTcAgJe12MCtb3Ji/go-multiaddr"
 )
 
@@ -811,4 +813,73 @@ func filtersRemove(r repo.Repo, cfg *config.Config, toRemoveFilters []string) ([
 	}
 
 	return removed, nil
+}
+
+var swarmConnMgrCmd = &cmds.Command{
+	Helptext: cmds.HelpText{
+		Tagline: "Interact with the Connection Manager.",
+		ShortDescription: `
+Display information about the current state of the connection manager.
+`,
+	},
+	Run: func(req cmds.Request, res cmds.Response) {
+		n, err := req.InvocContext().GetNode()
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+
+		if n.PeerHost == nil {
+			res.SetError(errNotOnline, cmds.ErrClient)
+			return
+		}
+
+		infos := make(map[string]interface{})
+		cmgr := n.PeerHost.ConnManager()
+		switch cmgr := cmgr.(type) {
+		case nil:
+			infos["type"] = "<nil>"
+		case *ifconnmgr.NullConnMgr:
+			infos["type"] = "disabled"
+		case *connmgr.BasicConnMgr:
+			infos["type"] = "basic"
+
+			inf := cmgr.GetInfo()
+			infos["lowWater"] = inf.LowWater
+			infos["highWater"] = inf.HighWater
+			infos["lastTrim"] = inf.LastTrim
+			infos["gracePeriod"] = inf.GracePeriod
+			infos["connCount"] = inf.ConnCount
+		default:
+			infos["type"] = "unknown"
+		}
+
+		res.SetOutput(infos)
+	},
+	Marshalers: cmds.MarshalerMap{
+		cmds.Text: func(res cmds.Response) (io.Reader, error) {
+			infos, ok := res.Output().(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("expected output type to be connInfos")
+			}
+
+			buf := new(bytes.Buffer)
+			fmt.Fprintf(buf, "type: %s\n", infos["type"])
+
+			var keys []string
+			for k := range infos {
+				if k != "type" {
+					keys = append(keys, k)
+				}
+			}
+			sort.Strings(keys)
+
+			for _, k := range keys {
+				fmt.Fprintf(buf, "%s: %s\n", k, infos[k])
+			}
+
+			return buf, nil
+		},
+	},
+	Type: make(map[string]interface{}),
 }
