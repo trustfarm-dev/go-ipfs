@@ -18,16 +18,17 @@ type Source struct {
 	Internal bool
 }
 
+// SortValue is sort order for the GC
 func (p Source) SortValue() int {
 	v := 0
 	if !p.Strict {
-		v += 1
+		v |= 1 << 0
 	}
 	if p.Direct {
-		v += 2
+		v |= 1 << 1
 	}
 	if p.Internal {
-		v += 4
+		v |= 1 << 2
 	}
 	return v
 }
