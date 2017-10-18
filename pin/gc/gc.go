@@ -28,7 +28,7 @@ var log = logging.Logger("gc")
 // deletes any block that is not found in the marked set.
 //
 type GC interface {
-	AddPinSource(...pin.PinSource) error
+	AddPinSource(...pin.Source) error
 	Run(ctx context.Context) <-chan Result
 }
 
@@ -36,7 +36,7 @@ type gctype struct {
 	bs bstore.GCBlockstore
 	ls dag.LinkService
 
-	roots []pin.PinSource
+	roots []pin.Source
 }
 
 var _ GC = (*gctype)(nil)
@@ -48,12 +48,12 @@ func NewGC(bs bstore.GCBlockstore, ls dag.LinkService) (GC, error) {
 	}, nil
 }
 
-// AddPinSource adds as pin.PinSource to be considered by the GC.
+// AddPinSource adds as pin.Source to be considered by the GC.
 // Any calls to AddPinSource have to be done before any calls to Run.
-func (g *gctype) AddPinSource(s ...pin.PinSource) error {
+func (g *gctype) AddPinSource(s ...pin.Source) error {
 	g.roots = append(g.roots, s...)
 	sort.SliceStable(g.roots, func(i, j int) bool {
-		return g.roots[i].Value() < g.roots[j].Value()
+		return g.roots[i].SortValue() < g.roots[j].SortValue()
 	})
 
 	return nil

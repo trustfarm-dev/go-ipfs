@@ -4,8 +4,8 @@ import (
 	cid "gx/ipfs/QmNp85zy9RLrQ5oQD4hPyS39ezrrXpcaa7R4Y9kxdWQLLQ/go-cid"
 )
 
-// Pinsource is structure describing source of the pin
-type PinSource struct {
+// Source is structure describing source of the pin
+type Source struct {
 	// Get if a function that will be called to get the pins for GCing
 	Get func() ([]*cid.Cid, error)
 	// Strict makes the GC fail if some objects can't be fetched during
@@ -18,7 +18,7 @@ type PinSource struct {
 	Internal bool
 }
 
-func (p PinSource) Value() int {
+func (p Source) SortValue() int {
 	v := 0
 	if !p.Strict {
 		v += 1

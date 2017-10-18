@@ -127,8 +127,8 @@ func (kr *Root) Flush() error {
 	return nil
 }
 
-func (kr *Root) PinSource() *pin.PinSource {
-	return &pin.PinSource{
+func (kr *Root) PinSource() *pin.Source {
+	return &pin.Source{
 		Get: func() ([]*cid.Cid, error) {
 			err := kr.Flush()
 			if err != nil {

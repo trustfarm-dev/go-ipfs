@@ -8,11 +8,11 @@ import (
 
 func TestPinSources(t *testing.T) {
 	gc := &gctype{}
-	sources := []pin.PinSource{
-		pin.PinSource{Direct: true},
-		pin.PinSource{Internal: true},
-		pin.PinSource{Strict: true},
-		pin.PinSource{},
+	sources := []pin.Source{
+		pin.Source{Direct: true},
+		pin.Source{Internal: true},
+		pin.Source{Strict: true},
+		pin.Source{},
 	}
 	err := gc.AddPinSource(sources...)
 	if err != nil {
