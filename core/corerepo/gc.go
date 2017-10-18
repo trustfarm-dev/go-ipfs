@@ -79,8 +79,8 @@ func BestEffortRoots(filesRoot *mfs.Root) ([]*cid.Cid, error) {
 	return []*cid.Cid{rootDag.Cid()}, nil
 }
 
-func GarbageCollect(n *core.IpfsNode, ctx context.Context) error {
-	rmed, err := GarbageCollectAsync(n, ctx)
+func GarbageCollect(ctx context.Context, n *core.IpfsNode) error {
+	rmed, err := GarbageCollectAsync(ctx, n)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (e *MultiError) Error() string {
 	return buf.String()
 }
 
-func GarbageCollectAsync(n *core.IpfsNode, ctx context.Context) (<-chan gc.Result, error) {
+func GarbageCollectAsync(ctx context.Context, n *core.IpfsNode) (<-chan gc.Result, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // in case error occurs during operation
 	g, err := gc.NewGC(n.Blockstore, n.DAG)
@@ -222,7 +222,7 @@ func (gc *GC) maybeGC(ctx context.Context, offset uint64) error {
 		log.Info("Watermark exceeded. Starting repo GC...")
 		defer log.EventBegin(ctx, "repoGC").Done()
 
-		if err := GarbageCollect(gc.Node, ctx); err != nil {
+		if err := GarbageCollect(ctx, gc.Node); err != nil {
 			return err
 		}
 		log.Infof("Repo GC done. See `ipfs repo stat` to see how much space got freed.\n")
