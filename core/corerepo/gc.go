@@ -150,7 +150,7 @@ func GarbageCollectAsync(n *core.IpfsNode, ctx context.Context) (<-chan gc.Resul
 		return nil, err
 	}
 
-	err = g.AddPinSource(n.Pinning.PinSources...)
+	err = g.AddPinSource(n.Pinning.PinSources()...)
 	if err != nil {
 		return nil, err
 	}
