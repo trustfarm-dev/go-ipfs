@@ -120,7 +120,7 @@ func (n *dagService) GetLinks(ctx context.Context, c *cid.Cid) ([]*node.Link, er
 
 func (n *dagService) GetOfflineLinkService() LinkService {
 	if n.Blocks.Exchange().IsOnline() {
-		bsrv := bserv.New(n.Blocks.Blockstore(), offline.Exchange(n.Blocks.Blockstore()))
+		bsrv := bserv.New(n.Blocks.Blockstore(), offline.Exchange(n.Blocks.Blockstore()), offline.Providers())
 		return NewDAGService(bsrv)
 	} else {
 		return n

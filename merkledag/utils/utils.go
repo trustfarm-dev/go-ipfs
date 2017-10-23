@@ -30,7 +30,7 @@ type Editor struct {
 func NewMemoryDagService() dag.DAGService {
 	// build mem-datastore for editor's intermediary nodes
 	bs := bstore.NewBlockstore(syncds.MutexWrap(ds.NewMapDatastore()))
-	bsrv := bserv.New(bs, offline.Exchange(bs))
+	bsrv := bserv.New(bs, offline.Exchange(bs), offline.Providers())
 	return dag.NewDAGService(bsrv)
 }
 

@@ -38,7 +38,7 @@ func emptyDirNode() *dag.ProtoNode {
 func getDagserv(t *testing.T) dag.DAGService {
 	db := dssync.MutexWrap(ds.NewMapDatastore())
 	bs := bstore.NewBlockstore(db)
-	blockserv := bserv.New(bs, offline.Exchange(bs))
+	blockserv := bserv.New(bs, offline.Exchange(bs), offline.Providers())
 	return dag.NewDAGService(blockserv)
 }
 

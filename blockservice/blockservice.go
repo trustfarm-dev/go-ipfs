@@ -8,9 +8,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ipfs/go-ipfs/blocks/blockstore"
+	blockstore "github.com/ipfs/go-ipfs/blocks/blockstore"
 	exchange "github.com/ipfs/go-ipfs/exchange"
 	bitswap "github.com/ipfs/go-ipfs/exchange/bitswap"
+	providers "github.com/ipfs/go-ipfs/exchange/providers"
 
 	cid "gx/ipfs/QmNp85zy9RLrQ5oQD4hPyS39ezrrXpcaa7R4Y9kxdWQLLQ/go-cid"
 	blocks "gx/ipfs/QmSn9Td7xgxm9EV7iEjTckpUWmWApggzPxu7eFGWkkpwin/go-block-format"
@@ -38,13 +39,15 @@ type BlockService interface {
 type blockService struct {
 	blockstore blockstore.Blockstore
 	exchange   exchange.Interface
+	providers  providers.Interface
+
 	// If checkFirst is true then first check that a block doesn't
 	// already exist to avoid republishing the block on the exchange.
 	checkFirst bool
 }
 
 // NewBlockService creates a BlockService with given datastore instance.
-func New(bs blockstore.Blockstore, rem exchange.Interface) BlockService {
+func New(bs blockstore.Blockstore, rem exchange.Interface, p providers.Interface) BlockService {
 	if rem == nil {
 		log.Warning("blockservice running in local (offline) mode.")
 	}
@@ -52,13 +55,14 @@ func New(bs blockstore.Blockstore, rem exchange.Interface) BlockService {
 	return &blockService{
 		blockstore: bs,
 		exchange:   rem,
+		providers:  p,
 		checkFirst: true,
 	}
 }
 
 // NewWriteThrough ceates a BlockService that guarantees writes will go
 // through to the blockstore and are not skipped by cache checks.
-func NewWriteThrough(bs blockstore.Blockstore, rem exchange.Interface) BlockService {
+func NewWriteThrough(bs blockstore.Blockstore, rem exchange.Interface, p providers.Interface) BlockService {
 	if rem == nil {
 		log.Warning("blockservice running in local (offline) mode.")
 	}
@@ -66,6 +70,7 @@ func NewWriteThrough(bs blockstore.Blockstore, rem exchange.Interface) BlockServ
 	return &blockService{
 		blockstore: bs,
 		exchange:   rem,
+		providers:  p,
 		checkFirst: false,
 	}
 }
@@ -119,6 +124,10 @@ func (s *blockService) AddBlock(o blocks.Block) (*cid.Cid, error) {
 		return nil, errors.New("blockservice is closed")
 	}
 
+	if err := s.providers.Provide(o.Cid()); err != nil {
+		return nil, errors.New("blockservice is closed")
+	}
+
 	return c, nil
 }
 
@@ -146,6 +155,9 @@ func (s *blockService) AddBlocks(bs []blocks.Block) ([]*cid.Cid, error) {
 	var ks []*cid.Cid
 	for _, o := range toput {
 		if err := s.exchange.HasBlock(o); err != nil {
+			return nil, fmt.Errorf("blockservice is closed (%s)", err)
+		}
+		if err := s.providers.Provide(o.Cid()); err != nil {
 			return nil, fmt.Errorf("blockservice is closed (%s)", err)
 		}
 

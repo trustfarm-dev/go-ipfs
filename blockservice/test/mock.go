@@ -17,7 +17,7 @@ func Mocks(n int) []BlockService {
 
 	var servs []BlockService
 	for _, i := range instances {
-		servs = append(servs, New(i.Blockstore(), i.Exchange))
+		servs = append(servs, New(i.Blockstore(), i.Exchange, i.Providers))
 	}
 	return servs
 }

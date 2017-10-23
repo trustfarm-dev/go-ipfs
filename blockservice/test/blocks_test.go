@@ -24,7 +24,7 @@ func newObject(data []byte) blocks.Block {
 
 func TestBlocks(t *testing.T) {
 	bstore := blockstore.NewBlockstore(dssync.MutexWrap(ds.NewMapDatastore()))
-	bs := New(bstore, offline.Exchange(bstore))
+	bs := New(bstore, offline.Exchange(bstore), offline.Providers())
 	defer bs.Close()
 
 	o := newObject([]byte("beep boop"))

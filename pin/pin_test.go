@@ -51,7 +51,7 @@ func TestPinnerBasic(t *testing.T) {
 
 	dstore := dssync.MutexWrap(ds.NewMapDatastore())
 	bstore := blockstore.NewBlockstore(dstore)
-	bserv := bs.New(bstore, offline.Exchange(bstore))
+	bserv := bs.New(bstore, offline.Exchange(bstore), offline.Providers())
 
 	dserv := mdag.NewDAGService(bserv)
 
@@ -176,7 +176,7 @@ func TestIsPinnedLookup(t *testing.T) {
 	ctx := context.Background()
 	dstore := dssync.MutexWrap(ds.NewMapDatastore())
 	bstore := blockstore.NewBlockstore(dstore)
-	bserv := bs.New(bstore, offline.Exchange(bstore))
+	bserv := bs.New(bstore, offline.Exchange(bstore), offline.Providers())
 
 	dserv := mdag.NewDAGService(bserv)
 
@@ -276,7 +276,7 @@ func TestDuplicateSemantics(t *testing.T) {
 	ctx := context.Background()
 	dstore := dssync.MutexWrap(ds.NewMapDatastore())
 	bstore := blockstore.NewBlockstore(dstore)
-	bserv := bs.New(bstore, offline.Exchange(bstore))
+	bserv := bs.New(bstore, offline.Exchange(bstore), offline.Providers())
 
 	dserv := mdag.NewDAGService(bserv)
 
@@ -311,7 +311,7 @@ func TestDuplicateSemantics(t *testing.T) {
 func TestFlush(t *testing.T) {
 	dstore := dssync.MutexWrap(ds.NewMapDatastore())
 	bstore := blockstore.NewBlockstore(dstore)
-	bserv := bs.New(bstore, offline.Exchange(bstore))
+	bserv := bs.New(bstore, offline.Exchange(bstore), offline.Providers())
 
 	dserv := mdag.NewDAGService(bserv)
 	p := NewPinner(dstore, dserv, dserv)
@@ -328,7 +328,7 @@ func TestPinRecursiveFail(t *testing.T) {
 	ctx := context.Background()
 	dstore := dssync.MutexWrap(ds.NewMapDatastore())
 	bstore := blockstore.NewBlockstore(dstore)
-	bserv := bs.New(bstore, offline.Exchange(bstore))
+	bserv := bs.New(bstore, offline.Exchange(bstore), offline.Providers())
 	dserv := mdag.NewDAGService(bserv)
 
 	p := NewPinner(dstore, dserv, dserv)
@@ -371,7 +371,7 @@ func TestPinRecursiveFail(t *testing.T) {
 func TestPinUpdate(t *testing.T) {
 	dstore := dssync.MutexWrap(ds.NewMapDatastore())
 	bstore := blockstore.NewBlockstore(dstore)
-	bserv := bs.New(bstore, offline.Exchange(bstore))
+	bserv := bs.New(bstore, offline.Exchange(bstore), offline.Providers())
 
 	dserv := mdag.NewDAGService(bserv)
 	p := NewPinner(dstore, dserv, dserv)

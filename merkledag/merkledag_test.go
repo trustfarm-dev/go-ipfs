@@ -239,7 +239,7 @@ func TestFetchGraph(t *testing.T) {
 	}
 
 	// create an offline dagstore and ensure all blocks were fetched
-	bs := bserv.New(bsis[1].Blockstore(), offline.Exchange(bsis[1].Blockstore()))
+	bs := bserv.New(bsis[1].Blockstore(), offline.Exchange(bsis[1].Blockstore()), offline.Providers())
 
 	offline_ds := NewDAGService(bs)
 

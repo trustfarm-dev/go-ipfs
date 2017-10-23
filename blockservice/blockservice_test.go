@@ -19,7 +19,7 @@ func TestWriteThroughWorks(t *testing.T) {
 	}
 	bstore2 := blockstore.NewBlockstore(dssync.MutexWrap(ds.NewMapDatastore()))
 	exch := offline.Exchange(bstore2)
-	bserv := NewWriteThrough(bstore, exch)
+	bserv := NewWriteThrough(bstore, exch, offline.Providers())
 	bgen := butil.NewBlockGenerator()
 
 	block := bgen.Next()

@@ -6,13 +6,15 @@ import (
 
 	blockstore "github.com/ipfs/go-ipfs/blocks/blockstore"
 	tn "github.com/ipfs/go-ipfs/exchange/bitswap/testnet"
+	offline "github.com/ipfs/go-ipfs/exchange/offline"
+	providers "github.com/ipfs/go-ipfs/exchange/providers"
 	datastore2 "github.com/ipfs/go-ipfs/thirdparty/datastore2"
 	delay "github.com/ipfs/go-ipfs/thirdparty/delay"
-	testutil "gx/ipfs/QmWRCn8vruNAzHx8i6SAXinuheRitKEGu8c7m26stKvsYx/go-testutil"
 
 	p2ptestutil "gx/ipfs/QmQGX417WoxKxDJeHqouMEmmH4G1RCENNSzkZYHrXy3Xb3/go-libp2p-netutil"
 	ds "gx/ipfs/QmVSase1JP7cq9QkPT46oNwdp9pT6kBkG3oqS14y3QcZjG/go-datastore"
 	ds_sync "gx/ipfs/QmVSase1JP7cq9QkPT46oNwdp9pT6kBkG3oqS14y3QcZjG/go-datastore/sync"
+	testutil "gx/ipfs/QmWRCn8vruNAzHx8i6SAXinuheRitKEGu8c7m26stKvsYx/go-testutil"
 	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 )
 
@@ -68,6 +70,7 @@ func (g *SessionGenerator) Instances(n int) []Instance {
 type Instance struct {
 	Peer       peer.ID
 	Exchange   *Bitswap
+	Providers  providers.Interface
 	blockstore blockstore.Blockstore
 
 	blockstoreDelay delay.D
@@ -106,6 +109,7 @@ func MkSession(ctx context.Context, net tn.Network, p testutil.Identity) Instanc
 	return Instance{
 		Peer:            p.ID(),
 		Exchange:        bs,
+		Providers:       offline.Providers(), //TODO: make sure this is correct
 		blockstore:      bstore,
 		blockstoreDelay: bsdelay,
 	}

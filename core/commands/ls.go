@@ -75,8 +75,10 @@ The JSON output contains type information.
 
 		dserv := nd.DAG
 		if !resolve {
-			offlineexch := offline.Exchange(nd.Blockstore)
-			bserv := blockservice.New(nd.Blockstore, offlineexch)
+			exch := offline.Exchange(nd.Blockstore)
+			prov := offline.Providers()
+
+			bserv := blockservice.New(nd.Blockstore, exch, prov)
 			dserv = merkledag.NewDAGService(bserv)
 		}
 
